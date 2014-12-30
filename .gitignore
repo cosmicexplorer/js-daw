@@ -1,3 +1,4 @@
 createStream
 *.js
 node_modules/
+.builddatedb
