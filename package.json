@@ -1,0 +1,12 @@
+{
+  "name": "js-daw",
+  "version": "0.0.0",
+  "author": "Danny McClanahan <danieldmcclanahan@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:cosmicexplorer/js-daw.git"
+  },
+  "dependencies": {
+    "speaker": "^0.2.1"
+  }
+}
