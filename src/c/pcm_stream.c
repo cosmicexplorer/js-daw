@@ -25,31 +25,46 @@ void pcm_catch_sigusr1(int sig __attribute__((unused))) {
   }
 }
 
+pthread_t pcm_begin_stream(pcm_thread_data_t * args) {
+  pcm_glob = args;
+  setvbuf(stdin, NULL, _IONBF, 0);  // sets stdin unbuffered for immediate input
+  setvbuf(stdout, NULL, _IONBF, 0); // same with stdout
+  signal(SIGUSR1, pcm_catch_sigusr1);
+  fprintf(stderr, "begin pcm\n");
+  pthread_create(&args->thread, NULL, pcm_stream, NULL);
+  return args->thread;
+}
+
+void pcm_parse_input(void) {
+  size_t chars_read = 0;
+  chars_read = getline(&pcm_glob->ipc_msg, &pcm_glob->ipc_msg_size, stdin);
+  fprintf(stderr, "%.*s", (int) (chars_read - 1), pcm_glob->ipc_msg);
+  if ('s' == pcm_glob->ipc_msg[0]) {
+    pcm_glob->freq = 2 * pcm_glob->freq;
+    pcm_glob->period = SAMPLE_RATE / pcm_glob->freq;
+  } else if ('e' == pcm_glob->ipc_msg[0]) {
+    pcm_glob->freq = pcm_glob->freq / 2;
+    pcm_glob->period = SAMPLE_RATE / pcm_glob->freq;
+  } else if ('q' == pcm_glob->ipc_msg[0]) {
+    pthread_exit(NULL);
+  }
+  __sync_fetch_and_sub(&pcm_glob->stdin_msgs, 1);
+}
+
 void * pcm_stream(void * arg __attribute__((unused))) {
-  size_t freq = 50;
-  size_t period = SAMPLE_RATE / freq;
+  pcm_glob->freq = 50;
+  pcm_glob->period = SAMPLE_RATE / pcm_glob->freq;
   int16_t cur_wave_val;
   size_t period_index;
   while (true) {
     if (pcm_glob->stdin_msgs > 0) {
-      getline(&pcm_glob->ipc_msg, &pcm_glob->ipc_msg_size, stdin);
-      fprintf(stderr, "%.*s", (int) pcm_glob->ipc_msg_size, pcm_glob->ipc_msg);
-      if ('s' == pcm_glob->ipc_msg[0]) {
-        freq = 2 * freq;
-        period = SAMPLE_RATE / freq;
-      } else if ('e' == pcm_glob->ipc_msg[0]) {
-        freq = freq / 2;
-        period = SAMPLE_RATE / freq;
-      } else if ('q' == pcm_glob->ipc_msg[0]) {
-        pthread_exit(NULL);
-      }
-      __sync_fetch_and_sub(&pcm_glob->stdin_msgs, 1);
+      pcm_parse_input();
     }
-    period_index = pcm_glob->frame_index % period;
-    if (period_index < (period / 2)) {
-      cur_wave_val = -20e3;
+    period_index = pcm_glob->frame_index % pcm_glob->period;
+    if (period_index < (pcm_glob->period / 2)) {
+      cur_wave_val = -5e3;
     } else {
-      cur_wave_val = 20e3;
+      cur_wave_val = 5e3;
     }
     for (size_t j = 0; j < NUM_CHANNELS; ++j) {
       pcm_glob->stereo_frame[j] = cur_wave_val;
@@ -57,12 +72,4 @@ void * pcm_stream(void * arg __attribute__((unused))) {
     fwrite(pcm_glob->stereo_frame, FRAME_SIZE, 1, stdout);
     ++pcm_glob->frame_index;
   }
-}
-
-pthread_t pcm_begin_stream(pcm_thread_data_t * args) {
-  pcm_glob = args;
-  signal(SIGUSR1, pcm_catch_sigusr1);
-  fprintf(stderr, "begin pcm\n");
-  pthread_create(&args->thread, NULL, pcm_stream, NULL);
-  return args->thread;
 }

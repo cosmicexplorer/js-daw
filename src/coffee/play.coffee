@@ -11,25 +11,36 @@ pcm = spawn './createStream'
 
 pcm.stdout.pipe speaker
 
+streamClosed = false
+
 pcm.stderr.on 'data', (msg) ->
   console.log msg.toString()
   if msg.toString() == "begin pcm\n"
-    setInterval((->
+    setTimeout((->
       # TODO: turn into json
       pcm.stdin.write "sa\n"
       pcm.kill 'SIGUSR1')
-      ,700)
+      ,200)
 
-    setInterval((->
+    setTimeout((->
       pcm.stdin.write "e\n"
       pcm.kill 'SIGUSR1')
-      ,1000)
+      ,300)
+
+    # setTimeout((->
+    #   # TODO: turn into json
+    #   pcm.stdin.write "sa\n"
+    #   pcm.kill 'SIGUSR1')
+    #   ,1000)
 
     setTimeout((->
       pcm.stdin.write "q\n"
       pcm.kill 'SIGUSR1')
-      ,5000)
+      ,2000)
 
+
+pcm.stdin.on 'close', ->
+  streamClosed = true
 
 pcm.on 'close', ->
   console.log "peace"

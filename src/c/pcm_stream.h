@@ -16,6 +16,8 @@ typedef struct {
   volatile int stdin_msgs;
   int16_t * stereo_frame;
   size_t frame_index;
+  size_t freq;
+  size_t period;
   pthread_t thread;
 } pcm_thread_data_t;
 
@@ -28,8 +30,10 @@ void free_pcm_thread_data(pcm_thread_data_t * arg);
 
 void pcm_catch_sigusr1(int sig);
 
-void * pcm_stream(void * arg);
-
 pthread_t pcm_begin_stream(pcm_thread_data_t * args);
+
+void pcm_parse_input(void);
+
+void * pcm_stream(void * arg);
 
 #endif
