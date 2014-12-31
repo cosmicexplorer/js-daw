@@ -13,6 +13,23 @@ pcm.stdout.pipe speaker
 
 pcm.stderr.on 'data', (msg) ->
   console.log msg.toString()
+  if msg.toString() == "begin pcm\n"
+    setInterval((->
+      # TODO: turn into json
+      pcm.stdin.write "sa\n"
+      pcm.kill 'SIGUSR1')
+      ,700)
+
+    setInterval((->
+      pcm.stdin.write "e\n"
+      pcm.kill 'SIGUSR1')
+      ,1000)
+
+    setTimeout((->
+      pcm.stdin.write "q\n"
+      pcm.kill 'SIGUSR1')
+      ,5000)
+
 
 pcm.on 'close', ->
   console.log "peace"
@@ -31,19 +48,3 @@ pcm.on 'close', ->
 #     same as add, but with index at msg[1], all else pushed right one
 #   clear: msg[0] == 'c'
 #   quit thread: msg[0] == 'q'
-
-setInterval((->
-  # TODO: turn into json
-  pcm.stdin.write "sa\n"
-  pcm.kill 'SIGUSR1')
-  ,333.333)
-
-setInterval((->
-  pcm.stdin.write "e\n"
-  pcm.kill 'SIGUSR1')
-  ,1000)
-
-setTimeout((->
-  pcm.stdin.write "q\n"
-  pcm.kill 'SIGUSR1')
-  ,3000)
