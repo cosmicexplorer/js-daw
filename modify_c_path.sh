@@ -7,7 +7,6 @@ do_compile="$(./needs_compile.sh $2/$output_filename $3)"
 
 if [ $do_compile = true ]; then
   echo $3:$cur_date >> .newbuilddatedb
-  echo -n "compiling $3..."
+  echo "compiling $3..."
   clang -c $3 $1 -o "$2/$output_filename"
-  echo "done."
 fi

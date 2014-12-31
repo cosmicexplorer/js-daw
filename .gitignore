@@ -2,3 +2,4 @@ createStream
 *.js
 node_modules/
 .builddatedb
+bin/*.o

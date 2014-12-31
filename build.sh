@@ -1,5 +1,8 @@
 #!/bin/bash
 
+WORKING_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd $WORKING_DIR
+
 OUTPUT_EXEC_NAME="createStream"
 OUTPUT_EXEC_DIR="."
 C_SRC_DIR="src/c/"
@@ -10,7 +13,7 @@ if [ $1 = 'bootstrap' ]; then
 elif [ $1 = 'build' ]; then
   ## C
   # set flags
-  C_FLAGS="-Wall -Wextra -Werror -O3"
+  C_FLAGS="-Wall -Wextra -Werror -O3 $(pkg-config --cflags glib-2.0)"
   # create object files
   find $C_SRC_DIR -name "*.c" \
        -exec ./modify_c_path.sh "$C_FLAGS" "$C_OBJECT_DIR" '{}' \;

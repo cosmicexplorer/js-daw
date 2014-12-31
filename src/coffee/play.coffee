@@ -17,13 +17,24 @@ pcm.stderr.on 'data', (msg) ->
 pcm.on 'close', ->
   console.log "peace"
 
+# synths are stored in a list which can be accessed by indices
+# stdin message code:
+#   add: msg[0] == 'a'
+#     square: msg[1] == 'q'
+#     sin: msg[1] == 's'
+#     triangle: msg[1] == 't'
+#     frequency: msg[2->(length-1)] == freq
+#   remove: msg[0] == 'r'
+#     index: msg[1] == index
+#   clear: msg[0] == 'c'
+
 setInterval((->
   # TODO: turn into json
-  pcm.stdin.write "freq\n"
+  pcm.stdin.write "sa\n"
   pcm.kill('SIGUSR1'))
-  ,2000)
+  ,333.333)
 
 setInterval((->
   pcm.stdin.write "quit\n"
   pcm.kill('SIGUSR1'))
-  ,4000)
+  ,1000)
