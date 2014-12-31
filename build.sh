@@ -13,14 +13,19 @@ if [ $1 = 'bootstrap' ]; then
 elif [ $1 = 'build' ]; then
   ## C
   # set flags
-  C_FLAGS="-Wall -Wextra -Werror -O3 $(pkg-config --cflags glib-2.0)"
+  C_FLAGS="-Wall -Wextra -Werror -O3"
   # create object files
   find $C_SRC_DIR -name "*.c" \
        -exec ./modify_c_path.sh "$C_FLAGS" "$C_OBJECT_DIR" '{}' \;
-  # link
-  echo -n "linking $OUTPUT_EXEC_DIR/$OUTPUT_EXEC_NAME..."
-  clang $C_OBJECT_DIR/*.o -o $OUTPUT_EXEC_DIR/$OUTPUT_EXEC_NAME
-  echo "done."
+  if [ ! -f ".error" ]; then
+    # link
+    echo "linking $OUTPUT_EXEC_DIR/$OUTPUT_EXEC_NAME..."
+    C_LINK_FLAGS="-pthread"
+    clang $C_OBJECT_DIR/*.o $C_LINK_FLAGS -o $OUTPUT_EXEC_DIR/$OUTPUT_EXEC_NAME
+  fi
+  if [ -f '.error' ]; then
+    rm .error
+  fi
 
   ## Coffeescript
   find $COFFEE_SRC_DIR -name "*.coffee" \
