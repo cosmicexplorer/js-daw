@@ -44,33 +44,33 @@ if (env.build_mode == 'DEBUG'):
     if (env.cleanup_mode == 'CLEAN'):
         env.Replace(CXX = 'g++') # because most of these only work with gcc
         env.Append(CXXFLAGS = ['-Wundef','-Wshadow','-Wformat=2',
-                              '-Wpointer-arith','-Wcast-align',
-                              '-Wswitch-default',
-                              '-Wswitch-enum','-Wunused','-Wstrict-overflow=5',
-                              '-Wmissing-format-attribute',
-                              '-Wsuggest-attribute=pure',
-                              '-Wsuggest-attribute=const',
-                              '-Wsuggest-attribute=noreturn','-Wtrampolines',
-                              '-Wtype-limits',
-                              '-Wcast-qual','-Wcast-align','-Wconversion',
-                              '-Wlogical-op',
-                              '-Wmissing-declarations',
-                              '-Wmissing-field-initializers','-Wpacked',
-                              '-Wredundant-decls',
-                              '-Winline','-Wvector-operation-performance',
-                              '-Wdisabled-optimization',
-                              '-Wunused-parameter','-Wuninitialized'])
+                               '-Wpointer-arith','-Wcast-align',
+                               '-Wswitch-default',
+                               '-Wswitch-enum','-Wunused','-Wstrict-overflow=5',
+                               '-Wmissing-format-attribute',
+                               '-Wsuggest-attribute=pure',
+                               '-Wconditionally-supported',
+                               '-Wzero-as-null-pointer-constant',
+                               '-Wuseless-cast',
+                               '-Wsuggest-attribute=const',
+                               '-Wsuggest-attribute=noreturn','-Wtrampolines',
+                               '-Wtype-limits','-Wdouble-promotion',
+                               '-Wcast-qual','-Wcast-align','-Wconversion',
+                               '-Wlogical-op',
+                               '-Wmissing-declarations',
+                               '-Wmissing-field-initializers','-Wpacked',
+                               '-Wredundant-decls','-Wpedantic',
+                               '-Winline','-Wvector-operation-performance',
+                               '-Wdisabled-optimization',
+                               '-Wunused-parameter','-Wuninitialized'])
     else:
         env.Replace(CXX = 'clang++')
 elif (env.build_mode == 'RELEASE'):
     env.Replace(CXX = 'g++')
-    env.Append(CXXFLAGS = ['-Ofast','-finline-functions',
+    env.Append(CXXFLAGS = ['-Ofast','-flto', '-finline-functions',
                           '-funsafe-loop-optimizations',
                           '-Wunsafe-loop-optimizations',
                           '-funroll-loops']) # TODO: ADD MARCH OPTIONS
-    env.Append(LINKFLAGS = ['-s'])           # remove symbol infos
+    env.Append(LINKFLAGS = ['-s', '-flto', '-Ofast'])
     if (env.cleanup_mode == 'CLEAN'):
         env.Append(CXXFLAGS = ['-Wdisabled-optimization'])
-
-# add gmp
-# env.Append(LIBS = ['gmp'])

@@ -12,19 +12,42 @@
 
 namespace pcm {
 
-typedef enum { SIN, SQUARE, TRIANGLE } Waveform;
+typedef enum { sin, square, triangle, morphing } Waveform;
 
-struct Synth {
+// oscillator
+struct Osc {
  public:
-  Synth(Waveform waveForm, size_t frequency);
-  Synth & doubleFreq();
-  Synth & halveFreq();
-  int16_t getOutput();
+  Osc(size_t frequency);
+  Osc() = delete;
+  Osc & doubleFreq();
+  Osc & halveFreq();
+  virtual int16_t getOutputAndAdvance() = 0;
 
-  Waveform wave;
   size_t freq;
   size_t frameIndex;
   size_t period;
+};
+
+struct SquareOsc : public Osc {
+ public:
+  SquareOsc(size_t frequency);
+  SquareOsc() = delete;
+  virtual int16_t getOutputAndAdvance();
+};
+
+Osc * makeOsc(Waveform wave, size_t frequency);
+
+struct Note {
+ public:
+  Note(Osc * o, double seconds);
+  Note() = delete;
+
+  std::shared_ptr<Osc> osc;
+  // TODO: make these bignums
+  unsigned long long length; // in frames
+  bool finished;
+  unsigned long long frameIndex;
+  int16_t getOutputAndAdvance();
 };
 
 class Thread {
@@ -32,9 +55,7 @@ class Thread {
   static Thread & getInstance();
   ~Thread();
   void beginStream();
-  void pushFrontSynth(Synth s);
-  Synth getFrontSynth();
-  void replaceFrontSynth(Synth s);
+  void pushNoteToStream(Note n);
   void stopStream();
   // because an external process can send the quit command via stdin
   void continueStreamUntilStopped();
@@ -47,23 +68,22 @@ class Thread {
   static void catchSignal(int);
   void parseInput();
   void setFrameValues();
-  static void * stream(void *);
+  void removeFinishedNotes();
+  static void * stream(void *) __attribute__((noreturn));
 
   size_t ipcMsgSize;
   char * ipcMsg;
   volatile int stdinMsgs;
   std::unique_ptr<int16_t[]> stereoFrame;
-  std::list<Synth> synths;
+  std::list<Note> notes;
   volatile bool cancelStream;
-  std::mutex synthAccessMutex;
+  std::mutex noteAccessMutex;
   pthread_t thread;
 };
 
 void beginStream();
 
-void pushFrontSynth(Synth s);
-
-void replaceFrontSynth(Synth s);
+void pushNoteToStream(Note n);
 
 void stopStream();
 

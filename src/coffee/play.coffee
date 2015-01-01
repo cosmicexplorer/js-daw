@@ -27,11 +27,10 @@ pcm.stderr.on 'data', (msg) ->
       pcm.kill 'SIGUSR1')
       ,300)
 
-    # setTimeout((->
-    #   # TODO: turn into json
-    #   pcm.stdin.write "sa\n"
-    #   pcm.kill 'SIGUSR1')
-    #   ,1000)
+    setTimeout((->
+      pcm.stdin.write "f\n"
+      pcm.kill 'SIGUSR1')
+      ,700)
 
     setTimeout((->
       pcm.stdin.write "q\n"
@@ -46,7 +45,7 @@ pcm.on 'close', ->
   console.log "peace"
 
 # ALL MESSAGES ON STDIN MUST END WITH A NEWLINE
-# synths are stored in a list which can be accessed by indices
+# oscs are stored in a list which can be accessed by indices
 # stdin message code:
 #   add: msg[0] == 'a'
 #     square: msg[1] == 'q'

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <signal.h>
 #include <pthread.h>
+#include <iostream>
+#include <exception>
 
 #include "pcm.h"
 
@@ -9,27 +11,30 @@ namespace pcm {
 std::mutex Thread::doubleCheckedLocker;
 std::unique_ptr<Thread> Thread::singleton;
 
-Synth::Synth(Waveform waveForm, size_t frequency)
-   : wave(waveForm),
-     freq(frequency),
+Osc::Osc(size_t frequency)
+   : freq(frequency),
      frameIndex(0),
      period(SAMPLE_RATE / freq) {
 }
 
-Synth & Synth::doubleFreq() {
+Osc & Osc::doubleFreq() {
   freq *= 2;
   period = SAMPLE_RATE / freq;
   return *this;
 }
 
-Synth & Synth::halveFreq() {
+Osc & Osc::halveFreq() {
   freq /= 2;
   period = SAMPLE_RATE / freq;
   return *this;
 }
 
-int16_t Synth::getOutput() {
+SquareOsc::SquareOsc(size_t frequency) : Osc(frequency) {
+}
+
+int16_t SquareOsc::getOutputAndAdvance() {
   size_t periodIndex = frameIndex % period;
+  ++frameIndex;
   if (periodIndex < (period / 2)) {
     return -5e3;
   } else {
@@ -37,10 +42,33 @@ int16_t Synth::getOutput() {
   }
 }
 
+Osc * makeOsc(Waveform wave, size_t frequency) {
+  if (wave == square) {
+    return new SquareOsc(frequency);
+  } else {
+    throw std::invalid_argument("Unrecognized waveform.");
+  }
+}
+
+Note::Note(Osc * o, double seconds)
+   : osc(o),
+     length(static_cast<unsigned long long>(seconds * SAMPLE_RATE)),
+     finished(false),
+     frameIndex(0) {
+}
+
+int16_t Note::getOutputAndAdvance() {
+  ++frameIndex;
+  if (frameIndex >= length) {
+    finished = true;
+  }
+  return osc->getOutputAndAdvance();
+}
+
 Thread & Thread::getInstance() {
   if (!singleton) {
     doubleCheckedLocker.lock();
-    if (!singleton){
+    if (!singleton) {
       singleton.reset(new Thread());
     }
     doubleCheckedLocker.unlock();
@@ -49,6 +77,8 @@ Thread & Thread::getInstance() {
 }
 
 Thread::~Thread() {
+  // TODO: this isn't freeing mem
+  free(ipcMsg); // since using getline
 }
 
 Thread::Thread()
@@ -56,9 +86,9 @@ Thread::Thread()
      ipcMsg(nullptr),
      stdinMsgs(0),
      stereoFrame(new int16_t[FRAME_SIZE]),
-     synths(),
+     notes(),
      cancelStream(false),
-     synthAccessMutex(),
+     noteAccessMutex(),
      thread() {
 }
 
@@ -70,11 +100,11 @@ void Thread::catchSignal(int) {
 }
 
 void Thread::beginStream() {
-  setvbuf(stdin, nullptr, _IONBF,
-          0); // sets stdin unbuffered for immediate input
+  // sets stdin unbuffered for immediate input
+  setvbuf(stdin, nullptr, _IONBF, 0);
   setvbuf(stdout, nullptr, _IONBF, 0); // same with stdout
   signal(SIGUSR1, Thread::catchSignal);
-  fprintf(stderr, "begin pcm\n");
+  std::cerr << "begin pcm" << std::endl;
   pthread_create(&thread, nullptr, stream, nullptr);
 }
 
@@ -83,13 +113,15 @@ void Thread::parseInput(void) {
   chars_read = getline(&ipcMsg, &ipcMsgSize, stdin);
   fprintf(stderr, "%.*s", (int) (chars_read - 1), ipcMsg);
   if ('s' == ipcMsg[0]) {
-    for (auto & synth : synths) {
-      synth.doubleFreq();
+    for (auto & note : notes) {
+      note.osc->doubleFreq();
     }
   } else if ('e' == ipcMsg[0]) {
-    for (auto & synth : synths) {
-      synth.halveFreq();
+    for (auto & note : notes) {
+      note.osc->halveFreq();
     }
+  } else if ('f' == ipcMsg[0]) {
+    pushNoteToStream(pcm::Note(pcm::makeOsc(pcm::square, 400), .2));
   } else if ('q' == ipcMsg[0]) {
     cancelStream = true;
   }
@@ -98,15 +130,23 @@ void Thread::parseInput(void) {
 
 void Thread::setFrameValues(void) {
   int16_t cur_wave_val = 0;
-  synthAccessMutex.lock();
-  for (auto & synth : synths) {
-    cur_wave_val += synth.getOutput();
-    ++synth.frameIndex;
+  noteAccessMutex.lock();
+  for (auto & note : notes) {
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wconversion"
+    cur_wave_val += note.getOutputAndAdvance();
+#pragma GCC diagnostic pop
+#endif
   }
-  synthAccessMutex.unlock();
+  noteAccessMutex.unlock();
   for (size_t j = 0; j < NUM_CHANNELS; ++j) {
     stereoFrame[j] = cur_wave_val;
   }
+}
+
+void Thread::removeFinishedNotes() {
+  notes.remove_if([](Note & n) { return n.finished; });
 }
 
 void * Thread::stream(void * arg __attribute__((unused))) {
@@ -120,19 +160,14 @@ void * Thread::stream(void * arg __attribute__((unused))) {
     }
     t.setFrameValues();
     fwrite(t.stereoFrame.get(), FRAME_SIZE, 1, stdout);
+    t.removeFinishedNotes();
   }
 }
 
-void Thread::pushFrontSynth(Synth s) {
-  synthAccessMutex.lock();
-  synths.push_front(s);
-  synthAccessMutex.unlock();
-}
-
-void Thread::replaceFrontSynth(Synth s) {
-  synthAccessMutex.lock();
-  synths.front() = s;
-  synthAccessMutex.unlock();
+void Thread::pushNoteToStream(Note n) {
+  noteAccessMutex.lock();
+  notes.push_front(n);
+  noteAccessMutex.unlock();
 }
 
 void Thread::stopStream(void) {
@@ -148,12 +183,8 @@ void beginStream() {
   Thread::getInstance().beginStream();
 }
 
-void pushFrontSynth(Synth s) {
-  Thread::getInstance().pushFrontSynth(s);
-}
-
-void replaceFrontSynth(Synth s) {
-  Thread::getInstance().replaceFrontSynth(s);
+void pushNoteToStream(Note n) {
+  Thread::getInstance().pushNoteToStream(n);
 }
 
 void stopStream() {
